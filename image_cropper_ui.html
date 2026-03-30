@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>本地图片裁剪工具</title>
+  <style>
+    :root {
+      --bg: #f3f6fb;
+      --panel: rgba(255, 255, 255, 0.88);
+      --line: #d7dfeb;
+      --text: #18324a;
+      --muted: #67809a;
+      --accent: #1c7ed6;
+      --accent-2: #12b886;
+      --shadow: 0 18px 50px rgba(26, 55, 89, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(28, 126, 214, 0.16), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(18, 184, 134, 0.12), transparent 22%),
+        linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%);
+      min-height: 100vh;
+    }
+
+    .shell {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .hero {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 18px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 44px);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .badge {
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(215, 223, 235, 0.9);
+      border-radius: 999px;
+      font-size: 13px;
+      color: var(--muted);
+      backdrop-filter: blur(12px);
+    }
+
+    .toolbar,
+    .workspace,
+    .hint {
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      border-radius: 22px;
+      margin-bottom: 18px;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 18px;
+      padding: 18px;
+      border-radius: 28px;
+    }
+
+    .stage {
+      position: relative;
+      border-radius: 22px;
+      overflow: hidden;
+      min-height: 620px;
+      background:
+        linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%) -12px 0/24px 24px,
+        linear-gradient(-45deg, rgba(255,255,255,0.03) 25%, transparent 25%) -12px 0/24px 24px,
+        linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.03) 75%) -12px 0/24px 24px,
+        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.03) 75%) -12px 0/24px 24px,
+        #102033;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 16px;
+    }
+
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 16px;
+    }
+
+    .preview {
+      display: grid;
+      place-items: center;
+      min-height: 260px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, #eff5fb, #e8eef7);
+      overflow: hidden;
+      border: 1px solid #dbe4ef;
+    }
+
+    .preview canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    .meta {
+      margin-top: 12px;
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .meta strong {
+      color: var(--text);
+    }
+
+    .list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 14px;
+    }
+
+    .button,
+    .file-label,
+    select {
+      appearance: none;
+      border: 1px solid #c8d5e6;
+      border-radius: 14px;
+      background: white;
+      color: var(--text);
+      font: inherit;
+      padding: 11px 14px;
+      transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+    }
+
+    .button,
+    .file-label {
+      cursor: pointer;
+    }
+
+    .button:hover,
+    .file-label:hover,
+    select:hover {
+      transform: translateY(-1px);
+      border-color: #9cc0ea;
+      box-shadow: 0 10px 20px rgba(28, 126, 214, 0.09);
+    }
+
+    .button.primary {
+      background: linear-gradient(135deg, #1c7ed6, #1568b5);
+      color: white;
+      border-color: transparent;
+    }
+
+    .button.green {
+      background: linear-gradient(135deg, #12b886, #0f9d72);
+      color: white;
+      border-color: transparent;
+    }
+
+    .spacer {
+      flex: 1 1 auto;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .status {
+      font-size: 14px;
+      color: var(--muted);
+      padding: 0 4px;
+    }
+
+    .hint {
+      margin-top: 18px;
+      border-radius: 22px;
+      padding: 14px 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .hint strong {
+      color: var(--text);
+    }
+
+    @media (max-width: 1024px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .stage {
+        min-height: 480px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div>
+        <h1>本地图片裁剪工具</h1>
+        <p>双击打开即可使用。支持拖拽裁剪、固定比例、实时预览和导出。</p>
+      </div>
+      <div class="badge">纯前端 · 无需安装 · 本地可用</div>
+    </section>
+
+    <section class="toolbar">
+      <label class="file-label" for="fileInput">打开图片</label>
+      <input id="fileInput" class="hidden" type="file" accept="image/*">
+
+      <button id="sampleBtn" class="button">加载示例头像</button>
+      <button id="fitBtn" class="button">适配窗口</button>
+      <button id="squareBtn" class="button">居中正方形</button>
+      <button id="clearBtn" class="button">清除选区</button>
+
+      <select id="ratioSelect" title="裁剪比例">
+        <option value="free">自由比例</option>
+        <option value="1:1">1 : 1</option>
+        <option value="4:3">4 : 3</option>
+        <option value="16:9">16 : 9</option>
+        <option value="3:4">3 : 4</option>
+        <option value="9:16">9 : 16</option>
+      </select>
+
+      <div class="spacer"></div>
+      <button id="saveBtn" class="button green">导出裁剪图</button>
+    </section>
+
+    <section class="workspace">
+      <div class="stage">
+        <canvas id="stageCanvas"></canvas>
+      </div>
+
+      <aside class="sidebar">
+        <div class="card">
+          <h2>裁剪预览</h2>
+          <div class="preview">
+            <canvas id="previewCanvas" width="280" height="280"></canvas>
+          </div>
+          <div class="meta">
+            <div><strong>当前图片：</strong><span id="fileName">未加载</span></div>
+            <div><strong>裁剪尺寸：</strong><span id="cropSize">-</span></div>
+            <div><strong>状态：</strong><span id="status">打开图片后，在左侧拖拽选择裁剪区域。</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>使用说明</h2>
+          <ol class="list">
+            <li>点击“打开图片”导入本地文件，或加载示例头像。</li>
+            <li>在左侧画布拖出裁剪框。</li>
+            <li>拖动框内可移动，拖动四角可缩放。</li>
+            <li>可切换固定比例，如 1:1 或 16:9。</li>
+            <li>点击“导出裁剪图”保存结果。</li>
+          </ol>
+        </div>
+      </aside>
+    </section>
+
+    <section class="hint">
+      <strong>小提示：</strong>这个页面可以直接双击 [image_cropper_ui.html] 打开；如果浏览器阻止加载同目录示例图，也没关系，点击“打开图片”选择本地文件即可。
+    </section>
+  </div>
+
+  <script>
+    const stageCanvas = document.getElementById("stageCanvas");
+    const stageCtx = stageCanvas.getContext("2d");
+    const previewCanvas = document.getElementById("previewCanvas");
+    const previewCtx = previewCanvas.getContext("2d");
+
+    const fileInput = document.getElementById("fileInput");
+    const sampleBtn = document.getElementById("sampleBtn");
+    const fitBtn = document.getElementById("fitBtn");
+    const squareBtn = document.getElementById("squareBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const saveBtn = document.getElementById("saveBtn");
+    const ratioSelect = document.getElementById("ratioSelect");
+
+    const fileNameEl = document.getElementById("fileName");
+    const cropSizeEl = document.getElementById("cropSize");
+    const statusEl = document.getElementById("status");
+
+    const state = {
+      image: null,
+      fileName: "",
+      scale: 1,
+      offsetX: 0,
+      offsetY: 0,
+      cropBox: null,
+      dragMode: null,
+      dragStart: null,
+      dragAnchor: null
+    };
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function resizeStage() {
+      const rect = stageCanvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      stageCanvas.width = Math.floor(rect.width * dpr);
+      stageCanvas.height = Math.floor(rect.height * dpr);
+      stageCanvas.style.width = rect.width + "px";
+      stageCanvas.style.height = rect.height + "px";
+      stageCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      redraw();
+    }
+
+    function fitImage() {
+      if (!state.image) {
+        return;
+      }
+      const width = stageCanvas.clientWidth;
+      const height = stageCanvas.clientHeight;
+      state.scale = Math.min(width / state.image.width, height / state.image.height);
+      state.scale = Math.max(state.scale, 0.05);
+      redraw();
+    }
+
+    function loadImage(src, fileName) {
+      const img = new Image();
+      img.onload = () => {
+        state.image = img;
+        state.fileName = fileName;
+        state.cropBox = null;
+        state.dragMode = null;
+        state.dragStart = null;
+        state.dragAnchor = null;
+        fileNameEl.textContent = fileName;
+        fitImage();
+        updatePreview();
+        setStatus("图片已加载，可以开始裁剪。");
+      };
+      img.onerror = () => {
+        setStatus("图片加载失败，请重新选择文件。");
+      };
+      img.src = src;
+    }
+
+    function redraw() {
+      const width = stageCanvas.clientWidth;
+      const height = stageCanvas.clientHeight;
+      stageCtx.clearRect(0, 0, width, height);
+
+      if (!state.image) {
+        drawEmptyState(width, height);
+        return;
+      }
+
+      const drawWidth = state.image.width * state.scale;
+      const drawHeight = state.image.height * state.scale;
+      state.offsetX = (width - drawWidth) / 2;
+      state.offsetY = (height - drawHeight) / 2;
+
+      stageCtx.drawImage(state.image, state.offsetX, state.offsetY, drawWidth, drawHeight);
+
+      stageCtx.strokeStyle = "rgba(216,226,238,0.45)";
+      stageCtx.lineWidth = 1;
+      stageCtx.strokeRect(state.offsetX, state.offsetY, drawWidth, drawHeight);
+
+      if (state.cropBox) {
+        drawCropOverlay();
+      }
+    }
+
+    function drawEmptyState(width, height) {
+      stageCtx.fillStyle = "rgba(255,255,255,0.82)";
+      stageCtx.font = "600 28px PingFang SC, Microsoft YaHei, sans-serif";
+      stageCtx.textAlign = "center";
+      stageCtx.fillText("打开图片后开始裁剪", width / 2, height / 2 - 12);
+      stageCtx.fillStyle = "rgba(207,221,237,0.8)";
+      stageCtx.font = "14px PingFang SC, Microsoft YaHei, sans-serif";
+      stageCtx.fillText("支持 JPG、PNG、WebP 等常见格式", width / 2, height / 2 + 20);
+    }
+
+    function drawCropOverlay() {
+      const [x1, y1, x2, y2] = state.cropBox;
+      const p1 = imageToCanvas(x1, y1);
+      const p2 = imageToCanvas(x2, y2);
+      const left = state.offsetX;
+      const top = state.offsetY;
+      const right = state.offsetX + state.image.width * state.scale;
+      const bottom = state.offsetY + state.image.height * state.scale;
+
+      stageCtx.fillStyle = "rgba(12, 20, 32, 0.58)";
+      stageCtx.fillRect(left, top, right - left, p1.y - top);
+      stageCtx.fillRect(left, p2.y, right - left, bottom - p2.y);
+      stageCtx.fillRect(left, p1.y, p1.x - left, p2.y - p1.y);
+      stageCtx.fillRect(p2.x, p1.y, right - p2.x, p2.y - p1.y);
+
+      stageCtx.strokeStyle = "#27d69b";
+      stageCtx.lineWidth = 2;
+      stageCtx.strokeRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+
+      for (const point of [
+        [p1.x, p1.y],
+        [p2.x, p1.y],
+        [p1.x, p2.y],
+        [p2.x, p2.y]
+      ]) {
+        stageCtx.fillStyle = "#ffffff";
+        stageCtx.strokeStyle = "#27d69b";
+        stageCtx.lineWidth = 1.5;
+        stageCtx.beginPath();
+        stageCtx.rect(point[0] - 5, point[1] - 5, 10, 10);
+        stageCtx.fill();
+        stageCtx.stroke();
+      }
+    }
+
+    function imageToCanvas(x, y) {
+      return {
+        x: state.offsetX + x * state.scale,
+        y: state.offsetY + y * state.scale
+      };
+    }
+
+    function canvasToImage(clientX, clientY) {
+      const rect = stageCanvas.getBoundingClientRect();
+      const x = (clientX - rect.left - state.offsetX) / state.scale;
+      const y = (clientY - rect.top - state.offsetY) / state.scale;
+      if (!state.image) {
+        return null;
+      }
+      if (x < 0 || y < 0 || x > state.image.width || y > state.image.height) {
+        return null;
+      }
+      return { x, y };
+    }
+
+    function canvasToImageClamped(clientX, clientY) {
+      const rect = stageCanvas.getBoundingClientRect();
+      let x = (clientX - rect.left - state.offsetX) / state.scale;
+      let y = (clientY - rect.top - state.offsetY) / state.scale;
+      x = clamp(x, 0, state.image.width);
+      y = clamp(y, 0, state.image.height);
+      return { x, y };
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function normalizeCropBox() {
+      if (!state.cropBox) {
+        return;
+      }
+      let [x1, y1, x2, y2] = state.cropBox;
+      state.cropBox = [Math.min(x1, x2), Math.min(y1, y2), Math.max(x1, x2), Math.max(y1, y2)];
+    }
+
+    function limitCropBox() {
+      if (!state.cropBox || !state.image) {
+        return;
+      }
+      let [x1, y1, x2, y2] = state.cropBox;
+      x1 = clamp(x1, 0, state.image.width);
+      y1 = clamp(y1, 0, state.image.height);
+      x2 = clamp(x2, 0, state.image.width);
+      y2 = clamp(y2, 0, state.image.height);
+      state.cropBox = [x1, y1, x2, y2];
+    }
+
+    function getRatio() {
+      if (ratioSelect.value === "free") {
+        return null;
+      }
+      const [w, h] = ratioSelect.value.split(":").map(Number);
+      return w / h;
+    }
+
+    function fixedCornerForMode(mode, box) {
+      const [x1, y1, x2, y2] = box;
+      const map = {
+        nw: [x2, y2],
+        ne: [x1, y2],
+        sw: [x2, y1],
+        se: [x1, y1]
+      };
+      return map[mode] || null;
+    }
+
+    function enforceAspect(anchor) {
+      const ratio = getRatio();
+      if (!ratio || !state.cropBox || !anchor) {
+        return;
+      }
+
+      const [ax, ay] = anchor;
+      const [x1, y1, x2, y2] = state.cropBox;
+      let movingX = Math.abs(x1 - ax) > Math.abs(x2 - ax) ? x1 : x2;
+      let movingY = Math.abs(y1 - ay) > Math.abs(y2 - ay) ? y1 : y2;
+
+      let dx = movingX - ax;
+      let dy = movingY - ay;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
+        return;
+      }
+
+      if (Math.abs(dx) / Math.max(Math.abs(dy), 0.0001) > ratio) {
+        dy = Math.abs(dx) / ratio * (dy >= 0 ? 1 : -1);
+      } else {
+        dx = Math.abs(dy) * ratio * (dx >= 0 ? 1 : -1);
+      }
+
+      state.cropBox = [ax, ay, ax + dx, ay + dy];
+      normalizeCropBox();
+      limitCropBox();
+    }
+
+    function hitTest(point) {
+      if (!state.cropBox) {
+        return null;
+      }
+      const [x1, y1, x2, y2] = state.cropBox;
+      const threshold = 10 / state.scale;
+      const nearLeft = Math.abs(point.x - x1) <= threshold;
+      const nearRight = Math.abs(point.x - x2) <= threshold;
+      const nearTop = Math.abs(point.y - y1) <= threshold;
+      const nearBottom = Math.abs(point.y - y2) <= threshold;
+
+      if (nearLeft && nearTop) return "nw";
+      if (nearRight && nearTop) return "ne";
+      if (nearLeft && nearBottom) return "sw";
+      if (nearRight && nearBottom) return "se";
+      if (point.x > x1 && point.x < x2 && point.y > y1 && point.y < y2) return "move";
+      return null;
+    }
+
+    function cropTooSmall() {
+      if (!state.cropBox) {
+        return true;
+      }
+      const [x1, y1, x2, y2] = state.cropBox;
+      return x2 - x1 < 8 || y2 - y1 < 8;
+    }
+
+    function clearCrop() {
+      state.cropBox = null;
+      state.dragMode = null;
+      state.dragStart = null;
+      state.dragAnchor = null;
+      cropSizeEl.textContent = "-";
+      updatePreview();
+      redraw();
+      setStatus("已清除裁剪区域。");
+    }
+
+    function makeSquareCrop() {
+      if (!state.image) {
+        return;
+      }
+      const side = Math.min(state.image.width, state.image.height) * 0.72;
+      const x1 = (state.image.width - side) / 2;
+      const y1 = (state.image.height - side) / 2;
+      ratioSelect.value = "1:1";
+      state.cropBox = [x1, y1, x1 + side, y1 + side];
+      redraw();
+      updatePreview();
+      setStatus("已生成居中的正方形裁剪框。");
+    }
+
+    function updatePreview() {
+      previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      if (!state.image || !state.cropBox || cropTooSmall()) {
+        previewCtx.fillStyle = "#90a1b7";
+        previewCtx.font = "15px PingFang SC, Microsoft YaHei, sans-serif";
+        previewCtx.textAlign = "center";
+        previewCtx.fillText("暂无预览", previewCanvas.width / 2, previewCanvas.height / 2);
+        cropSizeEl.textContent = "-";
+        return;
+      }
+
+      const [x1, y1, x2, y2] = state.cropBox;
+      const cropWidth = Math.round(x2 - x1);
+      const cropHeight = Math.round(y2 - y1);
+      cropSizeEl.textContent = cropWidth + " x " + cropHeight;
+
+      const scale = Math.min(previewCanvas.width / cropWidth, previewCanvas.height / cropHeight);
+      const drawWidth = cropWidth * scale;
+      const drawHeight = cropHeight * scale;
+      const offsetX = (previewCanvas.width - drawWidth) / 2;
+      const offsetY = (previewCanvas.height - drawHeight) / 2;
+
+      previewCtx.drawImage(
+        state.image,
+        x1,
+        y1,
+        cropWidth,
+        cropHeight,
+        offsetX,
+        offsetY,
+        drawWidth,
+        drawHeight
+      );
+    }
+
+    function exportCrop() {
+      if (!state.image || !state.cropBox || cropTooSmall()) {
+        setStatus("请先选择有效的裁剪区域。");
+        return;
+      }
+      const [x1, y1, x2, y2] = state.cropBox.map(v => Math.round(v));
+      const width = x2 - x1;
+      const height = y2 - y1;
+      const out = document.createElement("canvas");
+      out.width = width;
+      out.height = height;
+      const outCtx = out.getContext("2d");
+      outCtx.drawImage(state.image, x1, y1, width, height, 0, 0, width, height);
+
+      out.toBlob(blob => {
+        if (!blob) {
+          setStatus("导出失败，请重试。");
+          return;
+        }
+        const link = document.createElement("a");
+        const baseName = state.fileName ? state.fileName.replace(/\.[^.]+$/, "") : "cropped";
+        link.href = URL.createObjectURL(blob);
+        link.download = baseName + "_crop.png";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+        setStatus("裁剪图已导出。");
+      }, "image/png");
+    }
+
+    stageCanvas.addEventListener("pointerdown", event => {
+      if (!state.image) {
+        return;
+      }
+      const point = canvasToImage(event.clientX, event.clientY);
+      if (!point) {
+        return;
+      }
+
+      const hit = hitTest(point);
+      if (hit && state.cropBox) {
+        state.dragMode = hit;
+        state.dragStart = point;
+        state.dragAnchor = [...state.cropBox];
+      } else {
+        state.dragMode = "new";
+        state.dragStart = point;
+        state.dragAnchor = [point.x, point.y];
+        state.cropBox = [point.x, point.y, point.x, point.y];
+      }
+      stageCanvas.setPointerCapture(event.pointerId);
+      redraw();
+    });
+
+    stageCanvas.addEventListener("pointermove", event => {
+      if (!state.image || !state.dragMode || !state.dragStart) {
+        return;
+      }
+
+      const point = canvasToImageClamped(event.clientX, event.clientY);
+      if (state.dragMode === "new") {
+        state.cropBox = [state.dragStart.x, state.dragStart.y, point.x, point.y];
+        normalizeCropBox();
+        enforceAspect([state.dragStart.x, state.dragStart.y]);
+      } else if (state.dragMode === "move" && state.cropBox && state.dragAnchor) {
+        const [x1, y1, x2, y2] = state.dragAnchor;
+        const dx = point.x - state.dragStart.x;
+        const dy = point.y - state.dragStart.y;
+        const width = x2 - x1;
+        const height = y2 - y1;
+        let newX1 = clamp(x1 + dx, 0, state.image.width - width);
+        let newY1 = clamp(y1 + dy, 0, state.image.height - height);
+        state.cropBox = [newX1, newY1, newX1 + width, newY1 + height];
+      } else if (state.cropBox && state.dragAnchor) {
+        let [x1, y1, x2, y2] = state.dragAnchor;
+        if (state.dragMode.includes("w")) x1 = point.x;
+        if (state.dragMode.includes("e")) x2 = point.x;
+        if (state.dragMode.includes("n")) y1 = point.y;
+        if (state.dragMode.includes("s")) y2 = point.y;
+        state.cropBox = [x1, y1, x2, y2];
+        normalizeCropBox();
+        enforceAspect(fixedCornerForMode(state.dragMode, state.dragAnchor));
+      }
+
+      limitCropBox();
+      redraw();
+      updatePreview();
+    });
+
+    stageCanvas.addEventListener("pointerup", () => {
+      if (!state.cropBox) {
+        return;
+      }
+      normalizeCropBox();
+      limitCropBox();
+      if (cropTooSmall()) {
+        state.cropBox = null;
+        setStatus("裁剪区域过小，请重新选择。");
+      } else {
+        setStatus("已更新裁剪区域。");
+      }
+      state.dragMode = null;
+      state.dragStart = null;
+      state.dragAnchor = null;
+      redraw();
+      updatePreview();
+    });
+
+    stageCanvas.addEventListener("dragover", event => {
+      event.preventDefault();
+    });
+
+    stageCanvas.addEventListener("drop", event => {
+      event.preventDefault();
+      const file = event.dataTransfer.files[0];
+      if (!file || !file.type.startsWith("image/")) {
+        setStatus("只支持拖入图片文件。");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = e => loadImage(e.target.result, file.name);
+      reader.readAsDataURL(file);
+    });
+
+    fileInput.addEventListener("change", event => {
+      const file = event.target.files[0];
+      if (!file) {
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = e => loadImage(e.target.result, file.name);
+      reader.readAsDataURL(file);
+    });
+
+    sampleBtn.addEventListener("click", () => {
+      loadImage("./shirong.png", "shirong.png");
+    });
+
+    fitBtn.addEventListener("click", () => {
+      fitImage();
+      setStatus("图片已适配当前窗口。");
+    });
+
+    squareBtn.addEventListener("click", makeSquareCrop);
+    clearBtn.addEventListener("click", clearCrop);
+    saveBtn.addEventListener("click", exportCrop);
+
+    ratioSelect.addEventListener("change", () => {
+      if (!state.cropBox) {
+        return;
+      }
+      const [x1, y1] = state.cropBox;
+      enforceAspect([x1, y1]);
+      redraw();
+      updatePreview();
+      setStatus("已应用新的裁剪比例。");
+    });
+
+    window.addEventListener("resize", resizeStage);
+    resizeStage();
+    updatePreview();
+  </script>
+</body>
+</html>
